@@ -1,15 +1,31 @@
-export function filterTopics(topics, { category = "全部", query = "" } = {}) {
-  const normalizedQuery = query.trim().toLowerCase();
 
-  return topics.filter((topic) => {
+/**
+ * Stock Dashboard - Logic Layer
+ * Ralph-Loop Phase 4: SRE Robustness & Sanity Checks
+ */
+
+// --- SRE Utility Helpers ---
+const ensureArray = (val) => Array.isArray(val) ? val : [];
+const safeGet = (obj, path, fallback = "") => {
+  return path.split('.').reduce((acc, part) => acc && acc[part], obj) ?? fallback;
+};
+
+function filterTopics(topics, { category = "全部", query = "" } = {}) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const safeTopics = ensureArray(topics);
+
+  return safeTopics.filter((topic) => {
     const categoryMatches = category === "全部" || topic.category === category;
+    const companies = ensureArray(topic.companies);
+    
     const searchable = [
       topic.title,
       topic.category,
       topic.summary,
       topic.catalyst,
-      ...topic.companies.flatMap((company) => [company.name, company.ticker, company.role]),
+      ...companies.flatMap((company) => [company.name, company.ticker, company.role]),
     ]
+      .filter(Boolean)
       .join(" ")
       .toLowerCase();
 
@@ -17,9 +33,10 @@ export function filterTopics(topics, { category = "全部", query = "" } = {}) {
   });
 }
 
-export function buildCompanyIndex(topics) {
-  return topics.flatMap((topic) =>
-    topic.companies.map((company) => ({
+function buildCompanyIndex(topics) {
+  const safeTopics = ensureArray(topics);
+  return safeTopics.flatMap((topic) =>
+    ensureArray(topic.companies).map((company) => ({
       ...company,
       topicId: topic.id,
       topicTitle: topic.title,
@@ -28,22 +45,27 @@ export function buildCompanyIndex(topics) {
   );
 }
 
-export function filterCompanies(companies, query = "") {
+function filterCompanies(companies, query = "") {
   const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) return companies;
+  const safeCompanies = ensureArray(companies);
+  if (!normalizedQuery) return safeCompanies;
 
-  return companies.filter((company) =>
-    [company.ticker, company.name, company.role, company.topicTitle, company.category, company.market]
+  return safeCompanies.filter((company) => {
+    if (!company) return false;
+    return [company.ticker, company.name, company.role, company.topicTitle, company.category, company.market]
+      .filter(Boolean)
       .join(" ")
       .toLowerCase()
-      .includes(normalizedQuery),
-  );
+      .includes(normalizedQuery);
+  });
 }
 
-export function buildHeatMap(topics) {
+function buildHeatMap(topics) {
   const categoryMap = new Map();
+  const safeTopics = ensureArray(topics);
 
-  for (const topic of topics) {
+  for (const topic of safeTopics) {
+    if (!topic || !topic.category) continue;
     const entry = categoryMap.get(topic.category) ?? {
       category: topic.category,
       scoreTotal: 0,
@@ -51,26 +73,28 @@ export function buildHeatMap(topics) {
       companyCount: 0,
     };
 
-    entry.scoreTotal += topic.score;
+    entry.scoreTotal += (topic.score ?? 0);
     entry.topicCount += 1;
-    entry.companyCount += topic.companies.length;
+    entry.companyCount += ensureArray(topic.companies).length;
     categoryMap.set(topic.category, entry);
   }
 
   return [...categoryMap.values()]
     .map((entry) => ({
       category: entry.category,
-      averageScore: Math.round(entry.scoreTotal / entry.topicCount),
+      averageScore: entry.topicCount > 0 ? Math.round(entry.scoreTotal / entry.topicCount) : 0,
       topicCount: entry.topicCount,
       companyCount: entry.companyCount,
     }))
     .sort((a, b) => b.averageScore - a.averageScore || a.category.localeCompare(b.category, "zh-Hant"));
 }
 
-export function groupRelationships(topic) {
+function groupRelationships(topic) {
+  if (!topic) return [];
   const groups = new Map();
 
-  for (const relationship of topic.relationships ?? []) {
+  for (const relationship of ensureArray(topic.relationships)) {
+    if (!relationship || !relationship.group) continue;
     const nodes = groups.get(relationship.group) ?? [];
     nodes.push(relationship.label);
     groups.set(relationship.group, nodes);
@@ -79,46 +103,60 @@ export function groupRelationships(topic) {
   return [...groups.entries()].map(([group, nodes]) => ({ group, nodes }));
 }
 
-export function createTopicNetwork(topic, clusterId) {
+function createTopicNetwork(topic, clusterId) {
+  if (!topic) return { clusters: [], activeCluster: null, lanes: [], edgesByType: {} };
+  
   const network = topic.network;
   if (!network) {
     return { clusters: [], activeCluster: null, lanes: [], edgesByType: {} };
   }
 
-  const clusterViews = network.clusterViews ?? [];
+  const clusterViews = ensureArray(network.clusterViews);
   const activeCluster =
     clusterViews.find((cluster) => cluster.id === clusterId || cluster.label === clusterId) ??
     clusterViews[0] ??
     null;
+
   const source = activeCluster ?? network;
-  const laneMap = new Map(source.lanes.map((lane) => [lane.id, { ...lane, nodes: [] }]));
-  const nodeLabelMap = new Map(source.nodes.map((node) => [node.id, node.label]));
-  for (const node of source.nodes) {
+  if (!source) return { clusters: [], activeCluster: null, lanes: [], edgesByType: {} };
+
+  const lanes = ensureArray(source.lanes);
+  const nodes = ensureArray(source.nodes);
+  const edges = ensureArray(source.edges);
+
+  const laneMap = new Map(lanes.map((lane) => [lane.id, { ...lane, nodes: [] }]));
+  const nodeLabelMap = new Map(nodes.map((node) => [node.id, node.label]));
+
+  for (const node of nodes) {
+    if (!node) continue;
     const lane = laneMap.get(node.lane);
     if (lane) lane.nodes.push(node);
   }
 
   const edgesByType = {};
-  for (const edge of source.edges) {
+  for (const edge of edges) {
+    if (!edge || !edge.type) continue;
     edgesByType[edge.type] = (edgesByType[edge.type] ?? 0) + 1;
   }
-  const edges = source.edges.map((edge) => ({
+
+  const formattedEdges = edges.map((edge) => ({
     from: nodeLabelMap.get(edge.from) ?? edge.from,
     to: nodeLabelMap.get(edge.to) ?? edge.to,
     type: edge.type,
   }));
 
   return {
-    clusters: clusterViews.length > 0 ? clusterViews : network.clusters.map((label) => ({ id: label, label })),
+    clusters: clusterViews.length > 0 ? clusterViews : ensureArray(network.clusters).map((label) => ({ id: label, label })),
     activeCluster,
     lanes: [...laneMap.values()],
     edgesByType,
-    edges,
+    edges: formattedEdges,
   };
 }
 
-export function createInsights(topics, { query = "" } = {}) {
-  if (topics.length === 0) {
+function createInsights(topics, { query = "" } = {}) {
+  const safeTopics = ensureArray(topics);
+  if (safeTopics.length === 0) {
     return [
       {
         title: "目前沒有符合條件的題材",
@@ -127,59 +165,63 @@ export function createInsights(topics, { query = "" } = {}) {
     ];
   }
 
-  const byScore = [...topics].sort((a, b) => b.score - a.score);
-  const byDate = [...topics].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const companyCount = filterCompanies(buildCompanyIndex(topics), query).length;
-  const topCategory = buildHeatMap(topics)[0];
+  const byScore = [...safeTopics].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const byDate = [...safeTopics].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+  const companyCount = filterCompanies(buildCompanyIndex(safeTopics), query).length;
+  const heatMap = buildHeatMap(safeTopics);
+  const topCategory = heatMap[0];
 
   return [
     {
       title: "最高動能題材",
-      body: `${byScore[0].title} 目前分數 ${byScore[0].score}，主要催化來自「${byScore[0].catalyst}」。`,
+      body: `${byScore[0]?.title ?? "未知"} 目前分數 ${byScore[0]?.score ?? 0}，主要催化來自「${byScore[0]?.catalyst ?? "未知"}」。`,
     },
     {
       title: "最新核實資料",
-      body: `${byDate[0].title} 於 ${byDate[0].updatedAt} 更新，適合作為本週追蹤清單的起點。`,
+      body: `${byDate[0]?.title ?? "未知"} 於 ${byDate[0]?.updatedAt ?? "未知"} 更新，適合作為本週追蹤清單的起點。`,
     },
     {
       title: "供應鏈廣度",
-      body: `目前篩選範圍涵蓋 ${topics.length} 個題材與 ${companyCount} 筆公司角色，其中 ${topCategory.category} 平均分數最高。`,
+      body: `目前篩選範圍涵蓋 ${safeTopics.length} 個題材與 ${companyCount} 筆公司角色，其中 ${topCategory?.category ?? "未知"} 平均分數最高。`,
     },
   ];
 }
 
-export function createAnalysisReport(topics, { query = "" } = {}) {
-  const topicCompanies = buildCompanyIndex(topics);
+function createAnalysisReport(topics, { query = "" } = {}) {
+  const safeTopics = ensureArray(topics);
+  const topicCompanies = buildCompanyIndex(safeTopics);
   const groupCounts = new Map();
   const roleCounts = new Map();
 
-  for (const topic of topics) {
-    for (const relationship of topic.relationships ?? []) {
+  for (const topic of safeTopics) {
+    for (const relationship of ensureArray(topic.relationships)) {
+      if (!relationship || !relationship.group) continue;
       groupCounts.set(relationship.group, (groupCounts.get(relationship.group) ?? 0) + 1);
     }
   }
 
-  for (const company of topicCompanies) {
+  for (const company of ensureArray(topicCompanies)) {
+    if (!company || !company.role) continue;
     roleCounts.set(company.role, (roleCounts.get(company.role) ?? 0) + 1);
   }
 
-  const momentumRanking = [...topics]
-    .sort((a, b) => b.score - a.score || b.updatedAt.localeCompare(a.updatedAt))
+  const momentumRanking = [...safeTopics]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
     .map((topic) => ({
       id: topic.id,
       title: topic.title,
       category: topic.category,
       score: topic.score,
-      companyCount: topic.companies.length,
+      companyCount: ensureArray(topic.companies).length,
     }));
 
   const catalysts = momentumRanking.map((rankedTopic) => {
-    const topic = topics.find((item) => item.id === rankedTopic.id);
+    const topic = safeTopics.find((item) => item.id === rankedTopic.id);
     return {
-      title: topic.title,
-      catalyst: topic.catalyst,
-      updatedAt: topic.updatedAt,
-      score: topic.score,
+      title: topic?.title ?? rankedTopic.title,
+      catalyst: topic?.catalyst ?? "未知",
+      updatedAt: topic?.updatedAt ?? "未知",
+      score: topic?.score ?? 0,
     };
   });
 
@@ -193,14 +235,17 @@ export function createAnalysisReport(topics, { query = "" } = {}) {
     .sort((a, b) => b.count - a.count || a.index - b.index)
     .map(({ role, count }) => ({ role, count }));
 
-  const watchlist = momentumRanking.slice(0, 4).map((topic) => ({
-    label: topic.title,
-    score: topic.score,
-    reason: `${topics.find((item) => item.id === topic.id).catalyst}；可追蹤 ${topic.companyCount} 個公司角色。`,
-  }));
+  const watchlist = momentumRanking.slice(0, 4).map((topic) => {
+    const original = safeTopics.find((item) => item.id === topic.id);
+    return {
+      label: topic.title,
+      score: topic.score,
+      reason: `${original?.catalyst ?? "未知"}；可追蹤 ${topic.companyCount} 個公司角色。`,
+    };
+  });
 
   return {
-    insights: createInsights(topics, { query }),
+    insights: createInsights(safeTopics, { query }),
     momentumRanking,
     catalysts,
     supplyChainCoverage,
@@ -210,16 +255,17 @@ export function createAnalysisReport(topics, { query = "" } = {}) {
 }
 
 function clampScore(score) {
-  return Math.max(5, Math.min(99, Math.round(score)));
+  return Math.max(5, Math.min(99, Math.round(score ?? 0)));
 }
 
 function tickerSeed(ticker) {
-  return String(ticker)
+  return String(ticker ?? "")
     .split("")
     .reduce((sum, char, index) => sum + Number(char || 0) * (index + 3), 0);
 }
 
 function scoreCompany(company, topic) {
+  if (!company || !topic) return null;
   const seed = tickerSeed(company.ticker);
   const theme = clampScore(topic.score + (seed % 9) - 4);
   const fundamental = clampScore(topic.score - 8 + (seed % 17));
@@ -261,19 +307,23 @@ function scoreCompany(company, topic) {
 
 function buildScorecards(topics, query) {
   const normalizedQuery = query.trim().toLowerCase();
-  const cards = topics.flatMap((topic) => topic.companies.map((company) => scoreCompany(company, topic)));
+  const safeTopics = ensureArray(topics);
+  const cards = safeTopics.flatMap((topic) => 
+    ensureArray(topic.companies).map((company) => scoreCompany(company, topic))
+  ).filter(Boolean);
 
   if (!normalizedQuery) return cards;
 
   return cards.filter((card) =>
     [card.ticker, card.name, card.role, card.topicTitle, card.category, card.catalyst]
+      .filter(Boolean)
       .join(" ")
       .toLowerCase()
       .includes(normalizedQuery),
   );
 }
 
-export function createAiRankingReport(topics, { mode = "bullish", query = "" } = {}) {
+function createAiRankingReport(topics, { mode = "bullish", query = "" } = {}) {
   const modeSummaryByMode = {
     bullish: "看多模式偏重題材動能與基本面延續性，適合找出高分核心受惠股。",
     bearish: "看空模式會反向排序總分，適合找出題材或籌碼相對弱勢標的。",
@@ -313,7 +363,7 @@ export function createAiRankingReport(topics, { mode = "bullish", query = "" } =
     };
   }
 
-  const cards = buildScorecards(topics, query);
+  const cards = buildScorecards(ensureArray(topics), query);
   const titleByMode = {
     bullish: "看多 Top 10",
     bearish: "看空 Top 10",
@@ -340,8 +390,8 @@ export function createAiRankingReport(topics, { mode = "bullish", query = "" } =
       };
     })
     .sort((a, b) => {
-      if (mode === "bearish") return a.totalScore - b.totalScore || a.ticker.localeCompare(b.ticker);
-      return b.totalScore - a.totalScore || a.ticker.localeCompare(b.ticker);
+      if (mode === "bearish") return (a.totalScore ?? 0) - (b.totalScore ?? 0) || (a.ticker ?? "").localeCompare(b.ticker ?? "");
+      return (b.totalScore ?? 0) - (a.totalScore ?? 0) || (a.ticker ?? "").localeCompare(b.ticker ?? "");
     })
     .slice(0, 10)
     .map((card, index) => ({
@@ -361,11 +411,12 @@ export function createAiRankingReport(topics, { mode = "bullish", query = "" } =
   };
 }
 
-export function createCompanyDatabase(topics, snapshots = []) {
-  const snapshotMap = new Map(snapshots.map((snapshot) => [snapshot.ticker, snapshot]));
+function createCompanyDatabase(topics, snapshots = []) {
+  const snapshotMap = new Map(ensureArray(snapshots).map((snapshot) => [snapshot.ticker, snapshot]));
   const rows = new Map();
 
-  for (const company of buildCompanyIndex(topics)) {
+  for (const company of buildCompanyIndex(ensureArray(topics))) {
+    if (!company || !company.ticker) continue;
     const row =
       rows.get(company.ticker) ??
       {
@@ -382,7 +433,9 @@ export function createCompanyDatabase(topics, snapshots = []) {
     if (!row.topicTitles.includes(company.topicTitle)) row.topicTitles.push(company.topicTitle);
     if (!row.categories.includes(company.category)) row.categories.push(company.category);
     if (!row.roles.includes(company.role)) row.roles.push(company.role);
-    row.momentumTotal += topics.find((topic) => topic.id === company.topicId)?.score ?? 0;
+    
+    const topic = ensureArray(topics).find((t) => t.id === company.topicId);
+    row.momentumTotal += topic?.score ?? 0;
     row.topicCount += 1;
     rows.set(company.ticker, row);
   }
@@ -392,7 +445,7 @@ export function createCompanyDatabase(topics, snapshots = []) {
       const snapshot = snapshotMap.get(row.ticker);
       return {
         ...row,
-        momentumScore: Math.round(row.momentumTotal / row.topicCount),
+        momentumScore: row.topicCount > 0 ? Math.round(row.momentumTotal / row.topicCount) : 0,
         snapshotStatus: snapshot ? "updated" : "pending",
         lastPrice: snapshot?.lastPrice ?? null,
         changePct: snapshot?.changePct ?? null,
@@ -400,18 +453,20 @@ export function createCompanyDatabase(topics, snapshots = []) {
         signal: snapshot?.signal ?? "待更新",
       };
     })
-    .sort((a, b) => b.momentumScore - a.momentumScore || a.ticker.localeCompare(b.ticker));
+    .sort((a, b) => b.momentumScore - a.momentumScore || (a.ticker ?? "").localeCompare(b.ticker ?? ""));
 }
 
-export function createCompanyDetail(topics, snapshots = [], ticker) {
-  const company = createCompanyDatabase(topics, snapshots).find((row) => row.ticker === ticker);
+function createCompanyDetail(topics, snapshots = [], ticker) {
+  if (!ticker) return null;
+  const database = createCompanyDatabase(ensureArray(topics), snapshots);
+  const company = database.find((row) => row.ticker === ticker);
   if (!company) return null;
 
-  const snapshot = snapshots.find((item) => item.ticker === ticker) ?? null;
-  const topicExposures = buildCompanyIndex(topics)
+  const snapshot = ensureArray(snapshots).find((item) => item.ticker === ticker) ?? null;
+  const topicExposures = buildCompanyIndex(ensureArray(topics))
     .filter((item) => item.ticker === ticker)
     .map((item) => {
-      const topic = topics.find((candidate) => candidate.id === item.topicId);
+      const topic = ensureArray(topics).find((candidate) => candidate.id === item.topicId);
       return {
         topicId: item.topicId,
         topicTitle: item.topicTitle,
@@ -423,14 +478,14 @@ export function createCompanyDetail(topics, snapshots = [], ticker) {
     })
     .sort((a, b) => b.score - a.score || a.topicTitle.localeCompare(b.topicTitle, "zh-Hant"));
 
-  const primaryAnalysis = buildScorecards(topics, "")
-    .filter((card) => card.ticker === ticker)
-    .sort((a, b) => b.totalScore - a.totalScore)[0];
+  const primaryAnalysis = buildScorecards(ensureArray(topics), "")
+    .filter((card) => card && card.ticker === ticker)
+    .sort((a, b) => (b.totalScore ?? 0) - (a.totalScore ?? 0))[0];
 
   const exposureTopicIds = new Set(topicExposures.map((item) => item.topicId));
   const peerMap = new Map();
-  for (const item of buildCompanyIndex(topics)) {
-    if (item.ticker === ticker || !exposureTopicIds.has(item.topicId)) continue;
+  for (const item of buildCompanyIndex(ensureArray(topics))) {
+    if (!item || item.ticker === ticker || !exposureTopicIds.has(item.topicId)) continue;
     const entry = peerMap.get(item.ticker) ?? {
       ticker: item.ticker,
       name: item.name,
@@ -451,11 +506,11 @@ export function createCompanyDetail(topics, snapshots = [], ticker) {
   };
 }
 
-export function createMarketSnapshot(topics, snapshots) {
-  const snapshotMap = new Map(snapshots.map((snapshot) => [snapshot.ticker, snapshot]));
+function createMarketSnapshot(topics, snapshots) {
+  const snapshotMap = new Map(ensureArray(snapshots).map((snapshot) => [snapshot.ticker, snapshot]));
 
-  return buildCompanyIndex(topics)
-    .filter((company) => snapshotMap.has(company.ticker))
+  return buildCompanyIndex(ensureArray(topics))
+    .filter((company) => company && snapshotMap.has(company.ticker))
     .map((company) => {
       const snapshot = snapshotMap.get(company.ticker);
       return {
@@ -463,31 +518,33 @@ export function createMarketSnapshot(topics, snapshots) {
         name: company.name,
         role: company.role,
         topicTitle: company.topicTitle,
-        lastPrice: snapshot.lastPrice,
-        changePct: snapshot.changePct,
-        volume: snapshot.volume,
-        signal: snapshot.signal,
+        lastPrice: snapshot?.lastPrice,
+        changePct: snapshot?.changePct,
+        volume: snapshot?.volume,
+        signal: snapshot?.signal,
       };
     });
 }
 
-export function createTrackedTickers(topics, extraTickers = []) {
-  return [...new Set([...buildCompanyIndex(topics).map((company) => company.ticker), ...extraTickers])]
+function createTrackedTickers(topics, extraTickers = []) {
+  return [...new Set([...buildCompanyIndex(ensureArray(topics)).map((company) => company.ticker), ...ensureArray(extraTickers)])]
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
 }
 
-export function createEtfDashboard(etfs, topics) {
+function createEtfDashboard(etfs, topics) {
+  const safeEtfs = ensureArray(etfs);
   const companyTopics = new Map();
-  for (const company of buildCompanyIndex(topics)) {
+  for (const company of buildCompanyIndex(ensureArray(topics))) {
     const titles = companyTopics.get(company.ticker) ?? new Set();
     titles.add(company.topicTitle);
     companyTopics.set(company.ticker, titles);
   }
 
   const holdingMap = new Map();
-  for (const etf of etfs) {
-    for (const holding of etf.topHoldings) {
+  for (const etf of safeEtfs) {
+    if (!etf) continue;
+    for (const holding of ensureArray(etf.topHoldings)) {
       const entry = holdingMap.get(holding.ticker) ?? {
         ticker: holding.ticker,
         name: holding.name,
@@ -500,21 +557,21 @@ export function createEtfDashboard(etfs, topics) {
   }
 
   return {
-    totalAum: Number(etfs.reduce((sum, etf) => sum + etf.aum, 0).toFixed(1)),
+    totalAum: Number(safeEtfs.reduce((sum, etf) => sum + (etf.aum ?? 0), 0).toFixed(1)),
     dailyInflow: Number(
-      etfs.filter((etf) => etf.dailyFlow > 0).reduce((sum, etf) => sum + etf.dailyFlow, 0).toFixed(1),
+      safeEtfs.filter((etf) => (etf.dailyFlow ?? 0) > 0).reduce((sum, etf) => sum + (etf.dailyFlow ?? 0), 0).toFixed(1),
     ),
     dailyOutflow: Number(
-      etfs.filter((etf) => etf.dailyFlow < 0).reduce((sum, etf) => sum + etf.dailyFlow, 0).toFixed(1),
+      safeEtfs.filter((etf) => (etf.dailyFlow ?? 0) < 0).reduce((sum, etf) => sum + (etf.dailyFlow ?? 0), 0).toFixed(1),
     ),
-    weeklyFlow: Number(etfs.reduce((sum, etf) => sum + etf.weeklyFlow, 0).toFixed(1)),
-    funds: [...etfs].sort((a, b) => b.aum - a.aum),
-    tsmcLimit: [...etfs]
+    weeklyFlow: Number(safeEtfs.reduce((sum, etf) => sum + (etf.weeklyFlow ?? 0), 0).toFixed(1)),
+    funds: [...safeEtfs].sort((a, b) => (b.aum ?? 0) - (a.aum ?? 0)),
+    tsmcLimit: [...safeEtfs]
       .map((etf) => ({
         ticker: etf.ticker,
         name: etf.name,
         tsmcWeight: etf.tsmcWeight,
-        roomToLimit: Number((25 - etf.tsmcWeight).toFixed(1)),
+        roomToLimit: Number((25 - (etf.tsmcWeight ?? 0)).toFixed(1)),
       }))
       .sort((a, b) => a.roomToLimit - b.roomToLimit),
     holdingOverlap: [...holdingMap.values()]
@@ -524,62 +581,65 @@ export function createEtfDashboard(etfs, topics) {
         etfCount: entry.etfTickers.size,
         topicTitles: [...entry.topicTitles],
       }))
-      .sort((a, b) => b.etfCount - a.etfCount || a.ticker.localeCompare(b.ticker)),
+      .sort((a, b) => b.etfCount - a.etfCount || (a.ticker ?? "").localeCompare(b.ticker ?? "")),
   };
 }
 
-export function createDailyFocusReport(topics, snapshots, etfs, etfMeta) {
-  const marketRows = createMarketSnapshot(topics, snapshots)
-    .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
+function createDailyFocusReport(topics, snapshots, etfs, etfMeta) {
+  const safeTopics = ensureArray(topics);
+  const marketRows = createMarketSnapshot(safeTopics, snapshots)
+    .sort((a, b) => Math.abs(b.changePct ?? 0) - Math.abs(a.changePct ?? 0))
     .slice(0, 6);
-  const etfDashboard = createEtfDashboard(etfs, topics);
-  const strongestTopic = [...topics].sort((a, b) => b.score - a.score)[0];
-  const biggestFlow = [...etfs].sort((a, b) => b.dailyFlow - a.dailyFlow)[0];
+  const etfDashboard = createEtfDashboard(ensureArray(etfs), safeTopics);
+  const strongestTopic = [...safeTopics].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
+  const biggestFlow = [...ensureArray(etfs)].sort((a, b) => (b.dailyFlow ?? 0) - (a.dailyFlow ?? 0))[0];
 
   return {
     headline: "每日焦點",
-    lead: `${strongestTopic.title} 維持最高題材動能，${biggestFlow.ticker} ${biggestFlow.name} 今日資金流入 ${biggestFlow.dailyFlow} 億。`,
+    lead: `${strongestTopic?.title ?? "未知"} 維持最高題材動能，${biggestFlow?.ticker ?? "未知"} ${biggestFlow?.name ?? "未知"} 今日資金流入 ${biggestFlow?.dailyFlow ?? 0} 億。`,
     marketMovers: marketRows,
     etfBrief: {
-      sourceLabel: etfMeta.sourceLabel,
-      asOf: etfMeta.asOf,
-      etfCount: etfMeta.etfCount,
-      totalAum: etfMeta.totalAum,
-      tsmcLimitUsage: etfMeta.tsmcLimitUsage,
+      sourceLabel: etfMeta?.sourceLabel ?? "未知",
+      asOf: etfMeta?.asOf ?? "未知",
+      etfCount: etfMeta?.etfCount ?? 0,
+      totalAum: etfMeta?.totalAum ?? 0,
+      tsmcLimitUsage: etfMeta?.tsmcLimitUsage ?? 0,
       dailyInflow: etfDashboard.dailyInflow,
       dailyOutflow: etfDashboard.dailyOutflow,
       weeklyFlow: etfDashboard.weeklyFlow,
     },
     watchItems: [
-      `${strongestTopic.category}：${strongestTopic.catalyst}`,
-      `${biggestFlow.ticker}：追蹤日流入 ${biggestFlow.dailyFlow} 億與持股集中度`,
-      `公司資料庫：優先檢查 ${marketRows[0].ticker} ${marketRows[0].name} 的量價訊號`,
+      `${strongestTopic?.category ?? "未知"}：${strongestTopic?.catalyst ?? "未知"}`,
+      `${biggestFlow?.ticker ?? "未知"}：追蹤日流入 ${biggestFlow?.dailyFlow ?? 0} 億與持股集中度`,
+      `公司資料庫：優先檢查 ${marketRows[0]?.ticker ?? "未知"} ${marketRows[0]?.name ?? "未知"} 的量價訊號`,
     ],
     riskNotes: [
-      `台積電 25% 上限使用率 ${etfMeta.tsmcLimitUsage}%，高含積 ETF 需追蹤可加碼空間。`,
+      `台積電 25% 上限使用率 ${etfMeta?.tsmcLimitUsage ?? 0}%，高含積 ETF 需追蹤可加碼空間。`,
       "twstock snapshot 為離線更新資料，部署前應重新產生並人工檢查。",
     ],
   };
 }
 
-export function createEtfFlowReport(events, etfs, date) {
-  const etfNameMap = new Map(etfs.map((etf) => [etf.ticker, etf.name]));
-  const filteredEvents = events.filter((event) => event.date === date);
+function createEtfFlowReport(events, etfs, date) {
+  const safeEtfs = ensureArray(etfs);
+  const etfNameMap = new Map(safeEtfs.map((etf) => [etf.ticker, etf.name]));
+  const filteredEvents = ensureArray(events).filter((event) => event.date === date);
   const addTotal = Number(
     filteredEvents
-      .filter((event) => event.amount > 0)
-      .reduce((sum, event) => sum + event.amount, 0)
+      .filter((event) => (event.amount ?? 0) > 0)
+      .reduce((sum, event) => sum + (event.amount ?? 0), 0)
       .toFixed(1),
   );
   const trimTotal = Number(
     filteredEvents
-      .filter((event) => event.amount < 0)
-      .reduce((sum, event) => sum + event.amount, 0)
+      .filter((event) => (event.amount ?? 0) < 0)
+      .reduce((sum, event) => sum + (event.amount ?? 0), 0)
       .toFixed(1),
   );
   const etfMap = new Map();
 
   for (const event of filteredEvents) {
+    if (!event || !event.etfTicker) continue;
     const entry = etfMap.get(event.etfTicker) ?? {
       etfTicker: event.etfTicker,
       etfName: etfNameMap.get(event.etfTicker) ?? event.etfTicker,
@@ -588,9 +648,9 @@ export function createEtfFlowReport(events, etfs, date) {
       netAmount: 0,
     };
 
-    if (event.amount >= 0) entry.addAmount += event.amount;
-    else entry.trimAmount += event.amount;
-    entry.netAmount += event.amount;
+    if ((event.amount ?? 0) >= 0) entry.addAmount += (event.amount ?? 0);
+    else entry.trimAmount += (event.amount ?? 0);
+    entry.netAmount += (event.amount ?? 0);
     etfMap.set(event.etfTicker, entry);
   }
 
@@ -605,7 +665,113 @@ export function createEtfFlowReport(events, etfs, date) {
     date,
     addTotal,
     trimTotal,
-    events: filteredEvents.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)),
+    events: filteredEvents.sort((a, b) => Math.abs(b.amount ?? 0) - Math.abs(a.amount ?? 0)),
     byEtf: [...etfMap.values()].map(normalize).sort((a, b) => b.netAmount - a.netAmount),
   };
 }
+
+/**
+ * Loop 3: Global Retrieval Logic (Robustified)
+ */
+
+function buildGlobalCompanyIndex(topics) {
+  const globalIndex = new Map();
+  const safeTopics = ensureArray(topics);
+  
+  for (const topic of safeTopics) {
+    if (!topic) continue;
+    for (const company of ensureArray(topic.companies)) {
+      if (!company || !company.ticker) continue;
+      const existing = globalIndex.get(company.ticker) ?? {
+        ticker: company.ticker,
+        name: company.name,
+        market: company.market,
+        roles: [],
+        topics: [],
+      };
+      
+      if (!existing.roles.includes(company.role)) existing.roles.push(company.role);
+      existing.topics.push({
+        id: topic.id,
+        title: topic.title,
+        role: company.role,
+        score: topic.score
+      });
+      
+      globalIndex.set(company.ticker, existing);
+    }
+  }
+  
+  return [...globalIndex.values()];
+}
+
+function extractAllRoles(topics) {
+  const roles = new Set();
+  const safeTopics = ensureArray(topics);
+  for (const topic of safeTopics) {
+    if (!topic) continue;
+    for (const company of ensureArray(topic.companies)) {
+      if (company && company.role) roles.add(company.role);
+    }
+  }
+  return [...roles].sort();
+}
+
+function getCompanyGlobalGraph(topics, ticker) {
+  if (!ticker) return { nodes: [], links: [] };
+  const safeTopics = ensureArray(topics);
+  const nodes = [];
+  const links = [];
+  const nodeMap = new Map();
+  
+  const relatedTopics = safeTopics.filter(t => ensureArray(t.companies).some(c => c.ticker === ticker));
+  
+  const centerCompany = buildGlobalCompanyIndex(safeTopics).find(c => c.ticker === ticker);
+  if (!centerCompany) return { nodes: [], links: [] };
+  
+  nodeMap.set(ticker, { id: ticker, label: centerCompany.name, kind: 'center' });
+  nodes.push(nodeMap.get(ticker));
+  
+  for (const topic of relatedTopics) {
+    if (!topic) continue;
+    if (!nodeMap.has(topic.id)) {
+      nodeMap.set(topic.id, { id: topic.id, label: topic.title, kind: 'topic' });
+      nodes.push(nodeMap.get(topic.id));
+    }
+    
+    links.push({ source: ticker, target: topic.id, type: 'belongs_to' });
+    
+    for (const company of ensureArray(topic.companies)) {
+      if (!company || company.ticker === ticker) continue;
+      
+      if (!nodeMap.has(company.ticker)) {
+        nodeMap.set(company.ticker, { id: company.ticker, label: company.name, kind: 'company' });
+        nodes.push(nodeMap.get(company.ticker));
+      }
+      
+      links.push({ source: topic.id, target: company.ticker, type: 'contains' });
+    }
+  }
+  
+  return { nodes, links };
+}
+
+// Explicitly attach to window for main.js access
+window.filterTopics = filterTopics;
+window.buildCompanyIndex = buildCompanyIndex;
+window.filterCompanies = filterCompanies;
+window.buildHeatMap = buildHeatMap;
+window.groupRelationships = groupRelationships;
+window.createTopicNetwork = createTopicNetwork;
+window.createInsights = createInsights;
+window.createAnalysisReport = createAnalysisReport;
+window.createCompanyDatabase = createCompanyDatabase;
+window.createCompanyDetail = createCompanyDetail;
+window.createMarketSnapshot = createMarketSnapshot;
+window.createTrackedTickers = createTrackedTickers;
+window.createEtfDashboard = createEtfDashboard;
+window.createDailyFocusReport = createDailyFocusReport;
+window.createEtfFlowReport = createEtfFlowReport;
+window.buildGlobalCompanyIndex = buildGlobalCompanyIndex;
+window.extractAllRoles = extractAllRoles;
+window.getCompanyGlobalGraph = getCompanyGlobalGraph;
