@@ -1,75 +1,195 @@
-<!doctype html>
-<html lang="zh-Hant">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="AI 產業地圖：用互動卡片、供應鏈關係圖、公司資料庫與熱力圖探索台股 AI 產業鏈。"
-    />
-    <title>AI 產業地圖</title>
-    <link rel="stylesheet" href="./src/styles.css" />
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="./src/model.js"></script>
-    <script src="./src/graph.js"></script>
-    <script src="./src/main.js"></script>
-  </head>
-  <body>
-    <header class="topbar">
-      <a class="brand" href="#top" aria-label="AI 產業地圖首頁">
-        <span class="brand-mark">AI</span>
-        <span>產業地圖</span>
-      </a>
-      <nav class="nav" aria-label="主要功能">
-        <button class="nav-button" data-view="daily" onclick="setView('daily')">每日焦點</button>
-        <button class="nav-button active" data-view="global" onclick="setView('global')">全產業導航</button>
-        <button class="nav-button" data-view="themes" onclick="setView('themes')">題材總覽</button>
-        <button class="nav-button" data-view="map" onclick="setView('map')">產業地圖</button>
-        <button class="nav-button" data-view="companies" onclick="setView('companies')">公司資料庫</button>
-        <button class="nav-button" data-view="etfs" onclick="setView('etfs')">主動式 ETF</button>
-        <button class="nav-button" data-view="heat" onclick="setView('heat')">熱力圖</button>
-        <button class="nav-button" data-view="analysis" onclick="setView('analysis')">AI 分析</button>
-      </nav>
-      <button id="auth-button" class="auth-button" type="button">登入</button>
-    </header>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智慧產業地圖 | Industry Intelligence Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --slate-950: #020617;
+            --slate-900: #0f172a;
+            --slate-800: #1e293b;
+            --amber-400: #fbbf24;
+            --amber-500: #f59e0b;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(251, 191, 36, 0.3);
+        }
 
-    <main id="top" class="app-shell">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">GitHub Pages static research tool</p>
-          <h1>AI 產業地圖</h1>
-          <p class="hero-copy">探索台股 AI 算力、硬體基建、元件材料與企業應用供應鏈。</p>
+        body {
+            background-color: var(--slate-950);
+            color: #e2e8f0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow-x: hidden;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+        }
+
+        .amber-glow {
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.15);
+        }
+
+        .nav-item {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .nav-item.active {
+            color: var(--amber-400);
+            font-weight: 600;
+        }
+
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--amber-400);
+            box-shadow: 0 0 8px var(--amber-400);
+        }
+
+        .topic-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            border: 1px solid rgba(251, 191, 36, 0.1);
+        }
+
+        .topic-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--amber-400);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 0 15px rgba(251, 191, 36, 0.2);
+        }
+
+        .category-pill {
+            transition: all 0.2s ease;
+        }
+
+        .category-pill.active {
+            background-color: var(--amber-400);
+            color: var(--slate-950);
+            font-weight: 600;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--slate-950);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--slate-800);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--slate-700);
+        }
+    </style>
+</head>
+<body>
+    <nav class="fixed top-0 w-full z-50 glass-panel rounded-none border-t-0 border-x-0 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-8">
+            <h1 class="text-xl font-bold tracking-tight flex items-center gap-2">
+                <span class="text-amber-400"><i class="fa-solid fa-microchip"></i></span>
+                <span>智慧產業地圖 <span class="text-slate-500 font-normal text-sm ml-1">Industry Intelligence Map</span></span>
+            </h1>
+            <div class="hidden md:flex items-center gap-6 text-sm text-slate-400">
+                <div class="nav-item active" data-view="themes">產業地圖</div>
+                <div class="nav-item" data-view="companies">公司資料庫</div>
+                <div class="nav-item" data-view="heatmap">市場熱力圖</div>
+                <div class="nav-item" data-view="analysis">AI 分析</div>
+            </div>
         </div>
-        <div class="hero-stats" aria-label="資料概覽">
-          <div>
-            <strong id="topic-count">0</strong>
-            <span>題材</span>
-          </div>
-          <div>
-            <strong id="company-count">0</strong>
-            <span>公司角色</span>
-          </div>
-          <div>
-            <strong id="top-score">0</strong>
-            <span>最高動能</span>
-          </div>
+        <div class="flex items-center gap-4">
+            <button id="searchBtn" class="hidden sm:flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 border border-slate-700 rounded-full hover:border-amber-400 hover:text-amber-400 transition-all">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>開啟搜尋</span>
+                <span class="text-[10px] opacity-50 ml-1">⌘ K</span>
+            </button>
+            <button class="px-4 py-1.5 text-xs font-medium bg-amber-400 text-slate-950 rounded-full hover:bg-amber-300 transition-all">
+                升級會員
+            </button>
         </div>
-      </section>
+    </nav>
 
-      <section class="controls" aria-label="篩選工具">
-        <label class="search">
-          <span>搜尋</span>
-          <input id="search-input" type="search" placeholder="輸入公司、題材、角色或催化因素" />
-        </label>
-        <div id="category-filters" class="filter-row" aria-label="分類篩選"></div>
-      </section>
+    <main class="pt-24 pb-12 px-6 max-w-7xl mx-auto">
+        <header class="text-center mb-12">
+            <h2 class="text-4xl font-extrabold mb-4 tracking-tight text-white">
+                探索 <span class="text-amber-400">台股關鍵產業鏈</span> 與投資機會
+            </h2>
+            <p class="text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                運用 AI 分析將複雜產業轉化為易懂的視覺地圖。選擇您感興趣的產業主題，深入了解供應鏈結構與相關公司。
+            </p>
+        </header>
 
-      <section id="view-title" class="view-title" aria-live="polite"></section>
-      <section id="content" class="content" aria-live="polite"></section>
+        <section id="view-themes" class="view-section">
+            <div class="flex flex-wrap justify-center gap-3 mb-10">
+                <button class="category-pill active px-4 py-2 rounded-full text-sm border border-slate-700 hover:border-amber-400 transition-all" data-category="all">全部</button>
+                <div id="category-list" class="flex flex-wrap justify-center gap-3"></div>
+            </div>
+            <div id="topic-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </section>
+
+        <section id="view-companies" class="view-section hidden">
+            <div class="glass-panel p-6 overflow-hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-white">公司資料庫 <span class="text-slate-500 font-normal text-sm ml-2">Company Database</span></h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="companySearch" placeholder="搜尋公司..." class="px-4 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:border-amber-400 text-white">
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-slate-500 border-b border-slate-800">
+                            <tr>
+                                <th class="pb-3 font-medium">公司名稱</th>
+                                <th class="pb-3 font-medium">核心角色</th>
+                                <th class="pb-3 font-medium">關鍵題材</th>
+                                <th class="pb-3 font-medium text-center">權重分數</th>
+                                <th class="pb-3 font-medium text-center">市場</th>
+                            </tr>
+                        </thead>
+                        <tbody id="company-table-body" class="divide-y divide-slate-800"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-heatmap" class="view-section hidden">
+            <div class="glass-panel p-12 text-center">
+                <i class="fa-solid fa-fire-flame-curved text-5xl text-amber-500 mb-4"></i>
+                <h3 class="text-2xl font-bold text-white mb-2">市場熱力圖</h3>
+                <p class="text-slate-400">該功能正在開發中，將實作基於資金流向的視覺化熱力圖。</p>
+            </div>
+        </section>
+        <section id="view-analysis" class="view-section hidden">
+            <div class="glass-panel p-12 text-center">
+                <i class="fa-solid fa-brain text-5xl text-amber-500 mb-4"></i>
+                <h3 class="text-2xl font-bold text-white mb-2">AI 深度分析</h3>
+                <p class="text-slate-400">該功能正在開發中，將提供針對特定題材的 AI 邏輯拆解報告。</p>
+            </div>
+        </section>
     </main>
 
-    <footer class="footer">
-      <p>資料為示範內容，不構成投資建議。可直接部署到 GitHub Pages。</p>
-    </footer>
-  </body>
+    <div id="topic-modal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="glass-panel w-full max-w-3xl max-h-[90vh] overflow-y-auto amber-glow p-8 relative">
+            <button id="closeModal" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <script src="src/model.js"></script>
+    <script src="src/graph.js"></script>
+    <script src="src/main.js"></script>
+</body>
 </html>

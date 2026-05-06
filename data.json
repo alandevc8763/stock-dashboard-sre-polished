@@ -1,49 +1,66 @@
 {
   "categories": [
-    "\u7b97\u529b\u57fa\u5efa",
-    "\u5143\u4ef6\u6750\u6599",
-    "\u4f01\u696d\u61c9\u7528",
-    "\u7cfb\u7d71\u6574\u5408"
+    "半導體鏈",
+    "硬體基建",
+    "元件材料",
+    "企業IT",
+    "消費終端"
   ],
   "topics": [
     {
       "id": "gpu",
-      "title": "GPU \u7b97\u529b",
-      "category": "\u7b97\u529b\u57fa\u5efa",
-      "score": 95,
-      "desc": "AI \u904b\u7b97\u7684\u57fa\u77f3",
-      "summary": "\u4ee5 NVIDIA \u70ba\u6838\u5fc3\u7684\u7b97\u529b\u751f\u614b",
-      "catalyst": "B200 \u51fa\u8ca8",
+      "title": "GPU 算力｜AI 核心引擎 (AI Core Engine)",
+      "category": "半導體鏈",
+      "score": 98,
+      "desc": "AI 運算的基石，聚焦於高並行計算能力與張量核心 (Tensor Cores) 的設計與製造。",
+      "summary": "隨著生成式 AI 的爆發，GPU 已從圖形處理演進為通用 AI 加速器。核心壁壘在於 CUDA 生態系統的封閉性與 HBM 記憶體帶寬的極致追求。此題材涵蓋了從晶片設計 (Fabless) 到先進封裝 (CoWoS) 的全鏈路。",
+      "catalyst": "Blackwell B200 量產與部署",
       "updatedAt": "2026-05-01",
       "companies": [
         "tsmc",
-        "invda"
+        "invda",
+        "avgo"
       ]
     },
     {
       "id": "hbm",
-      "title": "HBM \u8a18\u61b6\u9ad4",
-      "category": "\u5143\u4ef6\u6750\u6599",
-      "score": 90,
-      "desc": "\u9ad8\u983b\u5bec\u8a18\u61b6\u9ad4",
-      "summary": "\u8a18\u61b6\u9ad4\u7246\u7684\u7a81\u7834\u53e3",
-      "catalyst": "HBM3E \u91cf\u7522",
+      "title": "HBM 記憶體｜高頻寬存儲 (High Bandwidth Memory)",
+      "category": "元件材料",
+      "score": 95,
+      "desc": "突破記憶體牆 (Memory Wall) 的唯一路徑，實現數據與計算單元的高速同步。",
+      "summary": "HBM 透過 3D 堆疊技術將 DRAM 垂直集成，極大化提升了單位面積的數據吞吐量。目前市場由 SK Hynix 領跑，三星與美光緊隨其後。關鍵在於 TSV (矽通孔) 技術的良率與熱管理方案。",
+      "catalyst": "HBM3E 進入主流供應鏈",
       "updatedAt": "2026-05-02",
       "companies": [
         "skhynix",
-        "micron"
+        "micron",
+        "samsung"
+      ]
+    },
+    {
+      "id": "liquid_cooling",
+      "title": "液冷散熱｜熱管理基礎設施 (Thermal Management)",
+      "category": "硬體基建",
+      "score": 88,
+      "desc": "解決 AI 伺服器功耗激增導致的熱失效問題，從風冷過渡到液冷。",
+      "summary": "單個 GPU 的 TDP 已突破 700W，傳統風冷已達物理極限。冷板式液冷 (Cold Plate) 與浸沒式液冷 (Immersion Cooling) 成為必然選擇。此題材關注 CDU (冷卻分發單元) 與快速接頭 (Quick Disconnect) 的標準化。",
+      "catalyst": "GB200 機櫃級液冷標配",
+      "updatedAt": "2026-05-03",
+      "companies": [
+        "vertiv",
+        "delta"
       ]
     }
   ],
   "companies": [
     {
       "id": "tsmc",
-      "name": "\u53f0\u7a4d\u96fb",
+      "name": "台積電",
       "topicId": "gpu",
-      "role": "\u6676\u5713\u4ee3\u5de5",
-      "score": 98,
-      "desc": "\u5168\u7403\u6700\u5148\u9032\u88fd\u7a0b",
-      "momentumScore": 98,
+      "role": "晶圓代工",
+      "score": 99,
+      "desc": "全球最先進製程 (3nm/2nm) 與 CoWoS 封裝的壟斷者",
+      "momentumScore": 99,
       "snapshotStatus": "updated",
       "market": "TW"
     },
@@ -51,10 +68,21 @@
       "id": "invda",
       "name": "NVIDIA",
       "topicId": "gpu",
-      "role": "GPU \u8a2d\u8a08",
+      "role": "GPU 設計",
       "score": 99,
-      "desc": "\u7b97\u529b\u9738\u4e3b",
+      "desc": "定義 AI 算力標準的霸主，掌控 CUDA 生態",
       "momentumScore": 99,
+      "snapshotStatus": "updated",
+      "market": "US"
+    },
+    {
+      "id": "avgo",
+      "name": "Broadcom",
+      "topicId": "gpu",
+      "role": "網路晶片/ASIC",
+      "score": 92,
+      "desc": "AI 叢集網路 (XPU) 與客製化 ASIC 的領先者",
+      "momentumScore": 94,
       "snapshotStatus": "updated",
       "market": "US"
     },
@@ -62,54 +90,87 @@
       "id": "skhynix",
       "name": "SK Hynix",
       "topicId": "hbm",
-      "role": "\u8a18\u61b6\u9ad4\u88fd\u9020",
-      "score": 92,
-      "desc": "HBM3 \u9818\u5c0e\u8005",
+      "role": "HBM 製造",
+      "score": 94,
+      "desc": "HBM3/HBM3E 市場份額第一，技術領先",
       "momentumScore": 92,
       "snapshotStatus": "updated",
       "market": "KR"
     },
     {
       "id": "micron",
-      "name": "\u7f8e\u5149",
+      "name": "美光",
       "topicId": "hbm",
-      "role": "\u8a18\u61b6\u9ad4\u88fd\u9020",
+      "role": "HBM 製造",
       "score": 88,
-      "desc": "HBM \u6311\u6230\u8005",
+      "desc": " aggressively 追趕 HBM 技術，聚焦於低功耗",
       "momentumScore": 88,
       "snapshotStatus": "pending",
       "market": "US"
+    },
+    {
+      "id": "samsung",
+      "name": "三星電子",
+      "topicId": "hbm",
+      "role": "HBM 製造",
+      "score": 85,
+      "desc": "規模最大但 HBM3E 驗證進度較慢",
+      "momentumScore": 80,
+      "snapshotStatus": "updated",
+      "market": "KR"
+    },
+    {
+      "id": "vertiv",
+      "name": "Vertiv",
+      "topicId": "liquid_cooling",
+      "role": "液冷基礎設施",
+      "score": 90,
+      "desc": "全球數據中心電源與冷卻系統領導者",
+      "momentumScore": 92,
+      "snapshotStatus": "updated",
+      "market": "US"
+    },
+    {
+      "id": "delta",
+      "name": "台達電",
+      "topicId": "liquid_cooling",
+      "role": "電源管理/散熱",
+      "score": 87,
+      "desc": "高效能電源供應器與冷卻模組供應商",
+      "momentumScore": 85,
+      "snapshotStatus": "updated",
+      "market": "TW"
     }
   ],
   "activeEtfMarketNote": {
-    "title": "\u5e02\u5834\u89c0\u5bdf",
-    "body": "\u76ee\u524d\u8cc7\u91d1\u96c6\u4e2d\u65bc\u7b97\u529b\u57fa\u5efa\uff0c\u5c24\u5176\u662f HBM \u76f8\u95dc\u6a19\u7684\u3002"
+    "title": "市場洞察",
+    "body": "目前資金流向高度集中於「算力基建」與「記憶體牆突破」兩大主題，尤其對 HBM3E 的量產進度極為敏感。"
   },
   "activeEtfs": [
     {
       "id": "etf1",
-      "name": "AI \u7b97\u529b ETF",
-      "aum": 100,
-      "dailyInflow": 1.2,
-      "dailyOutflow": 0.5,
-      "weeklyFlow": 5.4
+      "name": "AI 算力 ETF",
+      "aum": 120,
+      "dailyInflow": 1.5,
+      "dailyOutflow": 0.4,
+      "weeklyFlow": 6.2
     }
   ],
   "etfEdgeMeta": {
-    "marketNote": "ETF \u8cc7\u91d1\u6d41\u5411\u986f\u793a\u6295\u8cc7\u8005\u5c0d\u786c\u9ad4\u57fa\u5efa\u4fe1\u5fc3\u4f9d\u7136\u5f37\u70c8\u3002"
+    "marketNote": "ETF 資金流向顯示機構投資者正從純軟體應用轉向底層硬件基礎設施。"
   },
   "etfFlowEvents": [],
   "marketSnapshots": [
     {
       "ticker": "tsmc",
-      "lastPrice": "1000",
-      "changePct": 1.5,
+      "lastPrice": "1050",
+      "changePct": 2.1,
       "snapshotStatus": "updated"
     },
     {
       "ticker": "invda",
-      "lastPrice": "900",
-      "changePct": -0.5,
+      "lastPrice": "920",
+      "changePct": -1.2,
       "snapshotStatus": "updated"
     }
   ]
