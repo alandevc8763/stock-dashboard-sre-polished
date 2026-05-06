@@ -21,14 +21,14 @@
         <span>產業地圖</span>
       </a>
       <nav class="nav" aria-label="主要功能">
-        <button class="nav-button" data-view="daily">每日焦點</button>
-        <button class="nav-button active" data-view="global">全產業導航</button>
-        <button class="nav-button" data-view="themes">題材總覽</button>
-        <button class="nav-button" data-view="map">產業地圖</button>
-        <button class="nav-button" data-view="companies">公司資料庫</button>
-        <button class="nav-button" data-view="etfs">主動式 ETF</button>
-        <button class="nav-button" data-view="heat">熱力圖</button>
-        <button class="nav-button" data-view="analysis">AI 分析</button>
+        <button class="nav-button" data-view="daily" onclick="setView('daily')">每日焦點</button>
+        <button class="nav-button active" data-view="global" onclick="setView('global')">全產業導航</button>
+        <button class="nav-button" data-view="themes" onclick="setView('themes')">題材總覽</button>
+        <button class="nav-button" data-view="map" onclick="setView('map')">產業地圖</button>
+        <button class="nav-button" data-view="companies" onclick="setView('companies')">公司資料庫</button>
+        <button class="nav-button" data-view="etfs" onclick="setView('etfs')">主動式 ETF</button>
+        <button class="nav-button" data-view="heat" onclick="setView('heat')">熱力圖</button>
+        <button class="nav-button" data-view="analysis" onclick="setView('analysis')">AI 分析</button>
       </nav>
       <button id="auth-button" class="auth-button" type="button">登入</button>
     </header>

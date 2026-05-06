@@ -63,7 +63,7 @@ async function init() {
     const requestedTopic = params.get("topic");
     const requestedCompany = params.get("company");
     
-    state.view = requestedCompany ? "company" : requestedTopic ? "map" : "themes";
+    state.view = requestedCompany ? "companies" : requestedTopic ? "map" : "themes";
     state.selectedTopicId = (window.topics && window.topics.some((t) => t.id === requestedTopic)) ? requestedTopic : (window.topics ? window.topics[0]?.id : "");
     state.selectedCompanyTicker = requestedCompany ?? "";
     state.user = loadJson(USER_KEY, null);
@@ -152,7 +152,8 @@ function syncNav() {
   });
 }
 
-function setView(view) {
+window.setView = function setView(view) {
+    console.log('setView called with:', view);
   state.view = view;
   if (view !== "company") {
     state.selectedCompanyTicker = "";
@@ -177,7 +178,7 @@ function getVisibleTopics() {
 }
 
 function renderStats(visibleTopics) {
-  const companies = window.filterCompanies(window.buildCompanyIndex(visibleTopics), state.query);
+  const companies = (window.filterCompanies && window.buildCompanyIndex) ? window.filterCompanies(window.buildCompanyIndex(visibleTopics), state.query) : [];
   document.querySelector('#topic-count').textContent = String(visibleTopics.length);
   document.querySelector('#company-count').textContent = String(companies.length);
   document.querySelector('#top-score').textContent = String(Math.max(0, ...visibleTopics.map((topic) => topic.score)));
@@ -300,8 +301,8 @@ function renderMap(visibleTopics) {
 }
 function renderCompanies(visibleTopics) {
   document.querySelector('#view-title').innerHTML = `<div><p class="eyebrow">Company Database</p><h2>公司資料庫</h2></div>`;
-  const companyRows = window.createCompanyDatabase(visibleTopics, window.marketSnapshots);
-  const companies = window.filterCompanies(window.buildCompanyIndex(visibleTopics), state.query);
+  const companyRows = (window.createCompanyDatabase && window.marketSnapshots) ? window.createCompanyDatabase(visibleTopics, window.marketSnapshots) : [];
+  const companies = (window.filterCompanies && window.buildCompanyIndex) ? window.filterCompanies(window.buildCompanyIndex(visibleTopics), state.query) : [];
   const databaseRows = state.query ? companyRows.filter(company => [company.ticker, company.name, company.market, company.topicTitles.join(" "), company.categories.join(" "), company.roles.join(" ")].join(" ").toLowerCase().includes(state.query.trim().toLowerCase())) : companyRows;
   if (companies.length === 0) { renderEmpty(); return; }
   document.querySelector('#content').innerHTML = `
@@ -366,13 +367,34 @@ function render() {
   renderStats(visibleTopics);
   renderFilters();
   
-  if (state.view === "global") renderGlobalView(); else if (state.view === "themes") renderThemes(visibleTopics);
-  else if (state.view === "map") renderMap(visibleTopics);
-  else if (state.view === "company") renderCompanies(visibleTopics);
-  else if (state.view === "daily") renderDailyFocus(visibleTopics);
-  else if (state.view === "analysis") {
-    // Implementation for analysis view...
+  console.log('Rendering view:', state.view);
+  
+  if (state.view === "global") {
+    console.log('Action: renderGlobalView');
+    renderGlobalView();
+  } else if (state.view === "themes") {
+    console.log('Action: renderThemes');
+    renderThemes(visibleTopics);
+  } else if (state.view === "map") {
+    console.log('Action: renderMap');
+    renderMap(visibleTopics);
+  } else if (state.view === "companies") {
+    console.log('Action: renderCompanies');
+    try {
+      renderCompanies(visibleTopics);
+    } catch (e) {
+      console.error('renderCompanies failed:', e);
+      document.querySelector('#content').innerHTML = '<div class="empty-state"><h2>公司資料庫加載失敗</h2><p>' + e.message + '</p></div>';
+    }
+  } else if (state.view === "daily") {
+    console.log('Action: renderDailyFocus');
+    renderDailyFocus(visibleTopics);
+  } else if (state.view === "analysis") {
+    console.log('Action: renderAnalysis');
     document.querySelector('#content').innerHTML = `<div class="empty-state"><h2>分析模組</h2><p>請先選擇一家公司進行 AI 深度分析。</p></div>`;
+  } else {
+    console.log('Action: unknown view, defaulting to themes');
+    renderThemes(visibleTopics);
   }
 }
 
@@ -380,13 +402,21 @@ function render() {
 document.addEventListener("DOMContentLoaded", () => {
   init();
   // Navigation
-  document.querySelectorAll(".nav-button").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
+  document.querySelector(".nav").addEventListener("click", (e) => {
+    const btn = e.target.closest(".nav-button");
+    if (btn) {
+      console.log("Nav click (delegated):", btn.dataset.view);
+      setView(btn.dataset.view);
+    }
+  });
   // Search & Filter
-  document.querySelector('#search-input').addEventListener("input", (e) => {
+  const sInput = document.querySelector("#search-input");
+  if(sInput) sInput.addEventListener("input", (e) => {
     state.query = e.target.value;
     render();
   });
-  document.querySelector('#category-filters').addEventListener("click", (e) => {
+  const cFilters = document.querySelector("#category-filters");
+  if(cFilters) cFilters.addEventListener("click", (e) => {
     if (e.target.dataset.category) setCategory(e.target.dataset.category);
   });
   // Map interactions
@@ -399,6 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (clusterBtn) { state.activeNetworkCluster = clusterBtn.dataset.networkCluster; render(); }
     const companyBtn = e.target.closest(".company-link");
     if (companyBtn) { state.view = "company"; state.selectedCompanyTicker = companyBtn.dataset.company; syncNav(); render(); }
-    if (e.target === document.querySelector('#auth-button')) { state.user ? logout() : openLoginModal(); }
+    const aBtn = document.querySelector("#auth-button");
+    if (e.target === aBtn) { state.user ? logout() : openLoginModal(); }
   });
 });

@@ -8,7 +8,7 @@
   "topics": [
     {
       "id": "gpu",
-      "name": "GPU \u7b97\u529b",
+      "title": "GPU \u7b97\u529b",
       "category": "\u7b97\u529b\u57fa\u5efa",
       "score": 95,
       "desc": "AI \u904b\u7b97\u7684\u57fa\u77f3",
@@ -22,7 +22,7 @@
     },
     {
       "id": "hbm",
-      "name": "HBM \u8a18\u61b6\u9ad4",
+      "title": "HBM \u8a18\u61b6\u9ad4",
       "category": "\u5143\u4ef6\u6750\u6599",
       "score": 90,
       "desc": "\u9ad8\u983b\u5bec\u8a18\u61b6\u9ad4",
