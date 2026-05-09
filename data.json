@@ -50,6 +50,22 @@
         "vertiv",
         "delta"
       ]
+    },
+    {
+      "id": "power_infra",
+      "title": "電力基建｜AI 能源骨幹 (Power Infrastructure)",
+      "category": "硬體基建",
+      "score": 92,
+      "desc": "支持大規模晶圓廠 (Fab) 與數據中心擴建的高壓配電與電網升級。",
+      "summary": "記憶體龍頭擴廠與 AI 數據中心爆發導致電力需求指數級增長。核心瓶頸已從晶片算力轉移至『電網承載力』。焦點在於高壓變壓器、配電開關櫃以及 SMR (小型模組化反應爐) 零碳能源方案。",
+      "catalyst": "Samsung/Hynix 美國建廠電網升級",
+      "updatedAt": "2026-05-04",
+      "companies": [
+        "hd_hyundai",
+        "hyosung",
+        "ls_electric",
+        "schneider"
+      ]
     }
   ],
   "companies": [
@@ -140,11 +156,56 @@
       "momentumScore": 85,
       "snapshotStatus": "updated",
       "market": "TW"
+    },
+    {
+      "id": "hd_hyundai",
+      "name": "HD Hyundai Electric",
+      "topicId": "power_infra",
+      "role": "高壓變壓器",
+      "score": 95,
+      "desc": "韓國電力設備龍頭，受益於 AI Fab 與美電網升級",
+      "momentumScore": 96,
+      "snapshotStatus": "updated",
+      "market": "KR"
+    },
+    {
+      "id": "hyosung",
+      "name": "Hyosung Heavy Ind.",
+      "topicId": "power_infra",
+      "role": "重電設備",
+      "score": 91,
+      "desc": "專精於高壓開關櫃與電網穩定設備",
+      "momentumScore": 90,
+      "snapshotStatus": "updated",
+      "market": "KR"
+    },
+    {
+      "id": "ls_electric",
+      "name": "LS Electric",
+      "topicId": "power_infra",
+      "role": "配電系統",
+      "score": 89,
+      "desc": "提供 Fab 內部的精密配電與自動化電控方案",
+      "topicId": "power_infra",
+      "momentumScore": 88,
+      "snapshotStatus": "updated",
+      "market": "KR"
+    },
+    {
+      "id": "schneider",
+      "name": "Schneider Electric",
+      "topicId": "power_infra",
+      "role": "能源管理",
+      "score": 93,
+      "desc": "全球工業自動化與能源管理標準制定者",
+      "momentumScore": 91,
+      "snapshotStatus": "updated",
+      "market": "US"
     }
   ],
   "activeEtfMarketNote": {
     "title": "市場洞察",
-    "body": "目前資金流向高度集中於「算力基建」與「記憶體牆突破」兩大主題，尤其對 HBM3E 的量產進度極為敏感。"
+    "body": "目前資金流向高度集中於「算力基建」與「記憶體牆突破」兩大主題，尤其對 HBM3E 的量量產進度極為敏感。"
   },
   "activeEtfs": [
     {
